@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<script>
+    const KEY = "69x_potatoes_global_settings";
+    window.addEventListener("message", (e) => {
+        if (!e.data || !e.data.type) return;
+        if (e.data.type === "SAVE_69X") {
+            localStorage.setItem(KEY, JSON.stringify(e.data.payload));
+        } else if (e.data.type === "LOAD_69X") {
+            const saved = localStorage.getItem(KEY);
+            e.source.postMessage({ type: "LOADED_69X", payload: saved ? JSON.parse(saved) : null }, "*");
+        }
+    });
+</script>
+</body>
+</html>
