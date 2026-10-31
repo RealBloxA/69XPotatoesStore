@@ -4,6 +4,8 @@
 <body>
 <script>
   const KEY = "69x_potatoes_global_settings";
+  let bc = null;
+  try { bc = new BroadcastChannel("69x_global_channel"); } catch (e) {}
 
   function readData() {
     try {
@@ -21,40 +23,50 @@
     const existing = readData() || {};
     const merged = { ...existing, ...payload };
     const str = JSON.stringify(merged);
-    try {
-      localStorage.setItem(KEY, str);
-    } catch (e) {}
+    try { localStorage.setItem(KEY, str); } catch (e) {}
     try {
       document.cookie = KEY + "=" + encodeURIComponent(str) + "; max-age=31536000; path=/; SameSite=None; Secure";
     } catch (e) {}
+    if (bc) {
+      try { bc.postMessage(merged); } catch (e) {}
+    }
     return merged;
   }
 
-  window.addEventListener("message", async (e) => {
-    if (!e.data || !e.data.type) return;
-
-    if (document.requestStorageAccess) {
-      try { await document.requestStorageAccess(); } catch (err) {}
+  function sendToParent(type, payload) {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: type, payload: payload }, "*");
     }
+  }
 
-    if (e.data.type === "SAVE_69X") {
-      const updated = writeData(e.data.payload);
-      if (e.source) {
-        e.source.postMessage({ type: "SAVED_69X", payload: updated }, "*");
-      }
-    } else if (e.data.type === "LOAD_69X") {
-      const saved = readData();
-      if (e.source) {
-        e.source.postMessage({ type: "LOADED_69X", payload: saved }, "*");
-      }
+  // Real-time sync across all open embeds & tabs!
+  if (bc) {
+    bc.onmessage = (e) => {
+      if (e.data) sendToParent("LOADED_69X", e.data);
+    };
+  }
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === KEY && e.newValue) {
+      try { sendToParent("LOADED_69X", JSON.parse(e.newValue)); } catch (err) {}
     }
   });
 
-  // Immediately tell the embed we are loaded and ready!
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: "BRIDGE_READY_69X", payload: readData() }, "*");
-  }
+  window.addEventListener("message", async (e) => {
+    if (!e.data || !e.data.type) return;
+    if (document.requestStorageAccess) {
+      try { await document.requestStorageAccess(); } catch (err) {}
+    }
+    if (e.data.type === "SAVE_69X") {
+      const updated = writeData(e.data.payload);
+      if (e.source) e.source.postMessage({ type: "SAVED_69X", payload: updated }, "*");
+    } else if (e.data.type === "LOAD_69X") {
+      const saved = readData();
+      if (e.source) e.source.postMessage({ type: "LOADED_69X", payload: saved }, "*");
+    }
+  });
+
+  sendToParent("BRIDGE_READY_69X", readData());
 </script>
 </body>
 </html>
-<!-- Copyright (c) 2026 69X Potatoes. All rights reserved. Unauthorized use is prohibited. -->
